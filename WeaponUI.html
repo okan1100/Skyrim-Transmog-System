@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Jost:wght@300;400&display=swap');
+        :root { --accent: #d4b872; --bg: rgba(12, 12, 14, 0.98); --border: rgba(180, 180, 180, 0.4); }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body { background: transparent; color: #e0e0e0; font-family: 'Jost', sans-serif; overflow: hidden; width: 100vw; height: 100vh; }
+        
+        .drag-window { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 1000px; height: 780px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 15px 60px #000; display: flex; flex-direction: column; }
+        
+        .window-header { height: 60px; background: rgba(0,0,0,0.8); border-bottom: 1px solid var(--border); cursor: move; display: flex; justify-content: space-between; align-items: center; padding: 0 25px; border-radius: 12px 12px 0 0; }
+        .header-left { display: flex; align-items: center; gap: 25px; }
+        .title-text { font-family: 'Cinzel', serif; color: var(--accent); letter-spacing: 3px; font-size: 1.2rem; }
+        
+        /* --- LANGUAGE SELECTOR STYLES --- */
+        .lang-select { background: rgba(0,0,0,0.8); color: var(--accent); border: 2px solid var(--accent); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-family: 'Cinzel', serif; font-size: 1.1rem; font-weight: bold; outline: none; transition: 0.3s; box-shadow: 0 0 10px rgba(212, 184, 114, 0.1); }
+        .lang-select:hover { background: var(--accent); color: #000; }
+        .lang-select option { background: #000; color: #fff; font-family: 'Jost', sans-serif; font-size: 1rem; }
+        
+        .close-btn { background: transparent; color: #999; border: none; font-size: 1.8rem; cursor: pointer; transition: 0.2s; }
+        .close-btn:hover { color: #ff4444; }
+
+        .category-bar { display: flex; flex-direction: column; background: rgba(0,0,0,0.5); border-bottom: 1px solid var(--border); }
+        .main-cats { display: flex; justify-content: center; gap: 15px; padding: 15px 15px 5px 15px; }
+        .sub-cats { display: flex; justify-content: center; gap: 10px; padding: 10px 15px 15px 15px; min-height: 55px; }
+        
+        .cat-btn { padding: 12px 30px; background: transparent; border: 1px solid #555; color: #aaa; font-family: 'Cinzel', serif; cursor: pointer; border-radius: 4px; font-weight: bold; transition: 0.3s; }
+        .cat-btn.active { background: rgba(212, 184, 114, 0.1); color: var(--accent); border-color: var(--accent); box-shadow: 0 0 15px rgba(212, 184, 114, 0.3); }
+        
+        .sub-btn { padding: 8px 20px; background: transparent; border: 1px solid transparent; color: #888; font-family: 'Jost', sans-serif; cursor: pointer; border-radius: 4px; transition: 0.3s; }
+        .sub-btn.active { background: var(--accent); color: #000; font-weight: bold; }
+        .sub-group { display: none; gap: 10px; }
+        .sub-group.active { display: flex; }
+
+        .main-container { display: flex; flex-direction: row; flex-grow: 1; overflow: hidden; }
+        .panel { display: flex; flex-direction: column; padding: 20px; height: 100%; width: 38%; }
+        .center-panel { width: 24%; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 30px 10px; border-left: 1px solid rgba(255,255,255,0.05); border-right: 1px solid rgba(255,255,255,0.05); }
+        
+        .item-list { list-style: none; flex-grow: 1; overflow-y: auto; border: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.2); border-radius: 6px; }
+        .item-list li { padding: 18px 20px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.03); font-size: 1.05rem; }
+        .item-list li:hover { background: rgba(255,255,255,0.08); padding-left: 30px; }
+        .item-list li.selected { background: rgba(212, 184, 114, 0.2); border-left: 5px solid var(--accent); color: var(--accent); font-weight: bold; }
+        
+        .warning-box { background: rgba(212, 60, 60, 0.08); border: 1px solid rgba(212, 60, 60, 0.3); padding: 20px; border-radius: 8px; color: #ffbaba; font-size: 0.85rem; text-align: center; }
+        .warning-title { color: #ff4444; font-family: 'Cinzel', serif; display: block; margin-bottom: 8px; font-weight: bold; }
+
+        .name-box { background: rgba(0,0,0,0.6); border: 1px solid var(--border); padding: 15px; min-height: 80px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 1rem; border-radius: 6px; color: #fff; margin-top: 10px; }
+        .action-btn { width: 100%; padding: 35px 15px; background: rgba(0,0,0,0.85); color: var(--accent); border: 2px solid var(--accent); cursor: pointer; font-family: 'Cinzel', serif; font-size: 1.4rem; border-radius: 8px; font-weight: bold; transition: 0.3s; }
+        .action-btn:hover:not(:disabled) { background: var(--accent); color: #000; box-shadow: 0 0 30px rgba(212, 184, 114, 0.4); }
+        .action-btn:disabled { opacity: 0.5; cursor: default; }
+
+        #success-notification { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #000; border: 3px solid var(--accent); color: var(--accent); padding: 40px 80px; font-family: 'Cinzel', serif; font-size: 2.2rem; border-radius: 15px; display: none; z-index: 9999; letter-spacing: 5px; box-shadow: 0 0 100px #000; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div id="success-notification">TRANSFER SUCCESSFUL</div>
+    <div class="drag-window" id="win">
+        <div class="window-header" id="hdr">
+            <div class="header-left">
+                <span class="title-text" id="txt-main-title">SKYRiM WEAPON TRANSMOG</span>
+                <select class="lang-select" id="langPicker">
+                    <option value="en">English</option>
+                    <option value="tr">Türkçe</option>
+                    <option value="cs">Čeština</option>
+                    <option value="fr">Français</option>
+                    <option value="de">Deutsch</option>
+                    <option value="it">Italiano</option>
+                    <option value="zh">中文</option>
+                    <option value="pl">Polski</option>
+                    <option value="pt">Português</option>
+                    <option value="ru">Русский</option>
+                    <option value="es">Español</option>
+                    <option value="uk">Українська</option>
+                </select>
+            </div>
+            <button class="close-btn" id="x-btn">×</button>
+        </div>
+        
+        <div class="category-bar">
+            <div class="main-cats">
+                <button class="cat-btn active" id="mbtn-1h" onclick="changeMainCat('1h')">ONE-HANDED</button>
+                <button class="cat-btn" id="mbtn-2h" onclick="changeMainCat('2h')">TWO-HANDED</button>
+                <button class="cat-btn" id="mbtn-bow" onclick="changeMainCat('bow')">ARCHERY</button>
+            </div>
+            <div class="sub-cats">
+                <div class="sub-group active" id="sub-1h">
+                    <button class="sub-btn active" id="sbtn-swords" onclick="changeSubCat('swords')">Swords</button>
+                    <button class="sub-btn" id="sbtn-waraxes" onclick="changeSubCat('waraxes')">War Axes</button>
+                    <button class="sub-btn" id="sbtn-maces" onclick="changeSubCat('maces')">Maces</button>
+                    <button class="sub-btn" id="sbtn-daggers" onclick="changeSubCat('daggers')">Daggers</button>
+                </div>
+                <div class="sub-group" id="sub-2h">
+                    <button class="sub-btn" id="sbtn-greatswords" onclick="changeSubCat('greatswords')">Greatswords</button>
+                    <button class="sub-btn" id="sbtn-battleaxes" onclick="changeSubCat('battleaxes')">Battleaxes</button>
+                    <button class="sub-btn" id="sbtn-warhammers" onclick="changeSubCat('warhammers')">Warhammers</button>
+                </div>
+                <div class="sub-group" id="sub-bow">
+                    <button class="sub-btn" id="sbtn-bows" onclick="changeSubCat('bows')">Bows</button>
+                    <button class="sub-btn" id="sbtn-crossbows" onclick="changeSubCat('crossbows')">Crossbows</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-container">
+            <div class="panel">
+                <h2 id="txt-source">SOURCE LOOK</h2>
+                <ul id="sl" class="item-list"></ul>
+                <div class="name-box" id="sn">No Selection</div>
+            </div>
+            <div class="panel center-panel">
+                <div class="warning-box">
+                    <span class="warning-title" id="txt-warn-title">COMBAT WARNING</span>
+                    <span id="txt-warn-desc">Weapons can only be transmogged into the same type to prevent animation glitches.</span>
+                </div>
+                <button id="go" class="action-btn">TRANSFER</button>
+            </div>
+            <div class="panel">
+                <h2 id="txt-target">TARGET ITEM</h2>
+                <ul id="tl" class="item-list"></ul>
+                <div class="name-box" id="tn">No Selection</div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    let inv = {};
+    let sS = null, tS = null;
+    let currentMain = '1h', currentSub = 'swords';
+
+    // --- MULTILINGUAL DICTIONARY (12 LANGUAGES) ---
+    const i18n = {
+        en: {
+            title: "SKYRiM WEAPON TRANSMOG", 
+            c1h: "ONE-HANDED", c2h: "TWO-HANDED", cbow: "ARCHERY",
+            sw: "Swords", wa: "War Axes", ma: "Maces", da: "Daggers", gs: "Greatswords", ba: "Battleaxes", wh: "Warhammers", bo: "Bows", cb: "Crossbows",
+            src: "SOURCE LOOK", trg: "TARGET ITEM", none: "No Selection", ok: "TRANSFER SUCCESSFUL",
+            go: "TRANSFER", wait: "TRANSFERRING...", wt: "COMBAT WARNING",
+            wd: "Weapons can only be transmogged into the same type to prevent animation glitches."
+        },
+        tr: {
+            title: "SKYRiM WEAPON TRANSMOG", 
+            c1h: "TEK EL", c2h: "ÇİFT EL", cbow: "OKÇULUK",
+            sw: "Kılıçlar", wa: "Savaş Baltaları", ma: "Gürzler", da: "Hançerler", gs: "Büyük Kılıçlar", ba: "Çift Elli Baltalar", wh: "Savaş Çekiçleri", bo: "Yaylar", cb: "Arbaletler",
+            src: "GÖRÜNÜM KAYNAĞI", trg: "HEDEF EŞYA", none: "Seçim Yapılmadı", ok: "İŞLEM BAŞARILI",
+            go: "AKTAR", wait: "AKTARILIYOR...", wt: "SAVAŞ UYARISI",
+            wd: "Animasyon hatalarını önlemek için silahlar sadece kendi türlerine aktarılabilir."
+        },
+        cs: {
+            title: "SKYRiM WEAPON TRANSMOG", 
+            c1h: "JEDNORUČNÍ", c2h: "OBOURUČNÍ", cbow: "LUKOSTŘELBA",
+            sw: "Meče", wa: "Válečné sekery", ma: "Palcáty", da: "Dýky", gs: "Obouruční meče", ba: "Bojové sekery", wh: "Válečná kladiva", bo: "Luky", cb: "Kuše",
+            src: "ZDROJOVÝ VZHLED", trg: "CÍLOVÝ PŘEDMĚT", none: "Žádný výběr", ok: "PŘENOS ÚSPĚŠNÝ",
+            go: "PŘENÉST", wait: "PŘENÁŠÍM...", wt: "BOJOVÉ VAROVÁNÍ",
+            wd: "Zbraně lze přenášet pouze na stejný typ, aby se zabránilo chybám v animaci."
+        },
+        fr: {
+            title: "SKYRiM WEAPON TRANSMOG", 
+            c1h: "À UNE MAIN", c2h: "À DEUX MAINS", cbow: "ARCHERIE",
+            sw: "Épées", wa: "Haches d'armes", ma: "Masses", da: "Dagues", gs: "Espadons", ba: "Haches d'armes 2M", wh: "Marteaux de guerre", bo: "Arcs", cb: "Arbalètes",
+            src: "APPARENCE SOURCE", trg: "OBJET CIBLE", none: "Aucune sélection", ok: "TRANSFERT RÉUSSI",
+            go: "TRANSFÉRER", wait: "TRANSFERT EN COURS...", wt: "AVERTISSEMENT DE COMBAT",
+            wd: "Les armes ne peuvent être métamorphosées qu'en armes du même type pour éviter les bugs d'animation."
+        },
+        de: {
+            title: "SKYRiM WEAPON TRANSMOG", 
+            c1h: "EINHÄNDIG", c2h: "ZWEIHÄNDIG", cbow: "SCHIESSKUNST",
+            sw: "Schwerter", wa: "Kriegsäxte", ma: "Streitkolben", da: "Dolche", gs: "Zweihänder", ba: "Streitäxte", wh: "Kriegshämmer", bo: "Bögen", cb: "Armbrüste",
+            src: "QUELL-AUSSEHEN", trg: "ZIEL-GEGENSTAND", none: "Keine Auswahl", ok: "ÜBERTRAGUNG ERFOLGREICH",
+            go: "ÜBERTRAGEN", wait: "ÜBERTRAGE...", wt: "KAMPFWARNUNG",
+            wd: "Waffen können nur in den gleichen Typ verwandelt werden, um Animationsfehler zu vermeiden."
+        },
+        it: {
+            title: "SKYRiM WEAPON TRANSMOG", 
+            c1h: "UNA MANO", c2h: "DUE MANI", cbow: "ARCIERIA",
+            sw: "Spade", wa: "Asce da guerra", ma: "Mazze", da: "Pugnali", gs: "Spadoni", ba: "Asce da battaglia", wh: "Martelli da guerra", bo: "Archi", cb: "Balestre",
+            src: "ASPETTO SORGENTE", trg: "OGGETTO BERSAGLIO", none: "Nessuna selezione", ok: "TRASFERIMENTO RIUSCITO",
+            go: "TRASFERISCI", wait: "TRASFERIMENTO...", wt: "AVVERTIMENTO COMBATTIMENTO",
+            wd: "Le armi possono essere trasmutare solo nello stesso tipo per evitare problemi di animazione."
+        },
+        zh: {
+            title: "SKYRiM WEAPON TRANSMOG", 
+            c1h: "单手", c2h: "双手", cbow: "箭术",
+            sw: "剑", wa: "战斧", ma: "钉锤", da: "匕首", gs: "巨剑", ba: "双手斧", wh: "战锤", bo: "弓", cb: "弩",
+            src: "外观来源", trg: "目标物品", none: "未选择", ok: "幻化成功",
+            go: "幻化", wait: "幻化中...", wt: "战斗警告",
+            wd: "武器只能幻化为相同类型，以防止动画故障。"
+        },
+        pl: {
+            title: "SKYRiM WEAPON TRANSMOG", 
+            c1h: "JEDNORĘCZNE", c2h: "DWURĘCZNE", cbow: "ŁUCZNICTWO",
+            sw: "Miecze", wa: "Topory Wojenne", ma: "Buzdygany", da: "Sztylety", gs: "Wielkie Miecze", ba: "Topory Bojowe", wh: "Młoty Wojenne", bo: "Łuki", cb: "Kusze",
+            src: "WYGLĄD ŹRÓDŁOWY", trg: "PRZEDMIOT DOCELOWY", none: "Brak wyboru", ok: "PRZENIESIENIE UDANE",
+            go: "PRZENIEŚ", wait: "PRZENOSZENIE...", wt: "OSTRZEŻENIE BOJOWE",
+            wd: "Broń można transmutować tylko na ten sam typ, aby zapobiec usterkom animacji."
+        },
+        pt: {
+            title: "SKYRiM WEAPON TRANSMOG", 
+            c1h: "UMA MÃO", c2h: "DUAS MÃOS", cbow: "ARQUEARIA",
+            sw: "Espadas", wa: "Machados de Guerra", ma: "Maças", da: "Adagas", gs: "Espadas Grandes", ba: "Machados de Batalha", wh: "Martelos de Guerra", bo: "Arcos", cb: "Bestas",
+            src: "APARÊNCIA FONTE", trg: "ITEM ALVO", none: "Nenhuma Seleção", ok: "TRANSFERÊNCIA BEM-SUCEDIDA",
+            go: "TRANSFERIR", wait: "TRANSFERINDO...", wt: "AVISO DE COMBATE",
+            wd: "As armas só podem ser transmogrificadas para o mesmo tipo para evitar falhas de animação."
+        },
+        ru: {
+            title: "SKYRiM WEAPON TRANSMOG", 
+            c1h: "ОДНОРУЧНОЕ", c2h: "ДВУРУЧНОЕ", cbow: "СТРЕЛЬБА",
+            sw: "Мечи", wa: "Боевые топоры", ma: "Булавы", da: "Кинжалы", gs: "Двуручные мечи", ba: "Секиры", wh: "Боевые молоты", bo: "Луки", cb: "Арбалеты",
+            src: "ИСТОЧНИК ВИДА", trg: "ЦЕЛЕВОЙ ПРЕДМЕТ", none: "Не выбрано", ok: "ПЕРЕНОС УСПЕШЕН",
+            go: "ПЕРЕНЕСТИ", wait: "ПЕРЕНОС...", wt: "БОЕВОЕ ПРЕДУПРЕЖДЕНИЕ",
+            wd: "Оружие можно трансмогрифицировать только в тот же тип, чтобы предотвратить сбои анимации."
+        },
+        es: {
+            title: "SKYRiM WEAPON TRANSMOG", 
+            c1h: "A UNA MANO", c2h: "A DOS MANOS", cbow: "ARQUERÍA",
+            sw: "Espadas", wa: "Hachas de Guerra", ma: "Mazas", da: "Dagas", gs: "Mandobles", ba: "Hachas de Batalla", wh: "Martillos de Guerra", bo: "Arcos", cb: "Ballestas",
+            src: "APARIENCIA ORIGEN", trg: "OBJETO DESTINO", none: "Sin selección", ok: "TRANSFERENCIA EXITOSA",
+            go: "TRANSFERIR", wait: "TRANSFIRIENDO...", wt: "ADVERTENCIA DE COMBATE",
+            wd: "Las armas solo se pueden transmogrificar al mismo tipo para evitar fallos de animación."
+        },
+        uk: {
+            title: "SKYRiM WEAPON TRANSMOG", 
+            c1h: "ОДНОРУЧНЕ", c2h: "ДВУРУЧНЕ", cbow: "СТРІЛЬБА",
+            sw: "Мечі", wa: "Бойові сокири", ma: "Булави", da: "Кинджали", gs: "Дворучні мечі", ba: "Сокири", wh: "Бойові молоти", bo: "Луки", cb: "Арбалети",
+            src: "ДЖЕРЕЛО ВИГЛЯДУ", trg: "ЦІЛЬОВИЙ ПРЕДМЕТ", none: "Не вибрано", ok: "ПЕРЕНЕСЕННЯ УСПІШНЕ",
+            go: "ПЕРЕНЕСТИ", wait: "ПЕРЕНЕСЕННЯ...", wt: "БОЙОВЕ ПОПЕРЕДЖЕННЯ",
+            wd: "Зброю можна трансмогрифікувати лише в той самий тип, щоб запобігти збоям анімації."
+        }
+    };
+
+    function applyLang(lang) {
+        // Fallback to English if language is missing
+        if(!i18n[lang]) lang = 'en'; 
+        const d = i18n[lang];
+        document.getElementById('txt-main-title').innerText = d.title;
+        
+        document.getElementById('mbtn-1h').innerText = d.c1h;
+        document.getElementById('mbtn-2h').innerText = d.c2h;
+        document.getElementById('mbtn-bow').innerText = d.cbow;
+        
+        document.getElementById('sbtn-swords').innerText = d.sw;
+        document.getElementById('sbtn-waraxes').innerText = d.wa;
+        document.getElementById('sbtn-maces').innerText = d.ma;
+        document.getElementById('sbtn-daggers').innerText = d.da;
+        document.getElementById('sbtn-greatswords').innerText = d.gs;
+        document.getElementById('sbtn-battleaxes').innerText = d.ba;
+        document.getElementById('sbtn-warhammers').innerText = d.wh;
+        document.getElementById('sbtn-bows').innerText = d.bo;
+        document.getElementById('sbtn-crossbows').innerText = d.cb;
+        
+        document.getElementById('txt-source').innerText = d.src;
+        document.getElementById('txt-target').innerText = d.trg;
+        document.getElementById('txt-warn-title').innerText = d.wt;
+        document.getElementById('txt-warn-desc').innerText = d.wd;
+        document.getElementById('success-notification').innerText = d.ok;
+        
+        // Update button text if it is not in a loading state
+        if(!document.getElementById('go').disabled) document.getElementById('go').innerText = d.go;
+        
+        // Update selected item texts below lists
+        if(!sS) document.getElementById('sn').innerText = d.none;
+        if(!tS) document.getElementById('tn').innerText = d.none;
+        
+        localStorage.setItem('tm_lang', lang);
+    }
+
+    document.getElementById('langPicker').onchange = (e) => applyLang(e.target.value);
+
+    // Initial load function called by the C++ backend
+    window.loadUI = (data) => {
+        inv = (typeof data === 'string') ? JSON.parse(data) : data;
+        changeMainCat('1h');
+    };
+
+    function changeMainCat(main) {
+        currentMain = main;
+        ['1h', '2h', 'bow'].forEach(m => {
+            document.getElementById('mbtn-'+m).classList.remove('active');
+            document.getElementById('sub-'+m).classList.remove('active');
+        });
+        document.getElementById('mbtn-'+main).classList.add('active');
+        document.getElementById('sub-'+main).classList.add('active');
+        
+        if(main === '1h') changeSubCat('swords'); 
+        else if(main === '2h') changeSubCat('greatswords'); 
+        else if(main === 'bow') changeSubCat('bows');
+    }
+
+    function changeSubCat(sub) {
+        currentSub = sub; 
+        document.querySelectorAll('.sub-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById('sbtn-'+sub).classList.add('active');
+        
+        render(sub);
+    }
+
+    function render(type) {
+        const sL = document.getElementById('sl'), tL = document.getElementById('tl');
+        sL.innerHTML = ''; tL.innerHTML = ''; sS = null; tS = null;
+        
+        const lang = document.getElementById('langPicker').value;
+        const noneTxt = i18n[lang] ? i18n[lang].none : i18n['en'].none;
+        
+        document.getElementById('sn').innerText = noneTxt;
+        document.getElementById('tn').innerText = noneTxt;
+        document.getElementById('go').disabled = true;
+
+        (inv[type] || []).forEach(item => {
+            let li1 = document.createElement('li'); li1.innerText = item.name;
+            li1.onclick = () => { 
+                Array.from(sL.children).forEach(c=>c.classList.remove('selected')); 
+                li1.classList.add('selected'); 
+                sS=item; 
+                document.getElementById('sn').innerText=item.name; 
+                check();
+            };
+            sL.appendChild(li1);
+            
+            let li2 = document.createElement('li'); li2.innerText = item.name;
+            li2.onclick = () => { 
+                Array.from(tL.children).forEach(c=>c.classList.remove('selected')); 
+                li2.classList.add('selected'); 
+                tS=item; 
+                document.getElementById('tn').innerText=item.name; 
+                check();
+            };
+            tL.appendChild(li2);
+        });
+    }
+
+    function check() {
+        document.getElementById('go').disabled = !(sS && tS);
+    }
+
+    // --- SECURE C++ COMMUNICATION BRIDGE ---
+    document.getElementById('go').onclick = function() {
+        if (sS && tS) {
+            const lang = document.getElementById('langPicker').value;
+            this.innerText = i18n[lang] ? i18n[lang].wait : i18n['en'].wait;
+            this.disabled = true;
+            
+            const payload = sS.id + "," + tS.id;
+
+            try {
+                if (typeof window.TRANSMOGRIFY === 'function') {
+                    window.TRANSMOGRIFY(payload);
+                } 
+                else if (window.PrismaUI && window.PrismaUI.invoke) {
+                    window.PrismaUI.invoke('TRANSMOGRIFY', payload);
+                }
+                else {
+                    alert("C++ Bridge initialization failed!");
+                    this.innerText = i18n[lang] ? i18n[lang].go : i18n['en'].go;
+                    this.disabled = false;
+                }
+            } catch(e) {
+                console.error("Transmission Error:", e);
+                this.innerText = i18n[lang] ? i18n[lang].go : i18n['en'].go;
+                this.disabled = false;
+            }
+        }
+    };
+
+    // Callback triggered when C++ successfully processes the transmog
+    window.transmogSuccess = (data) => {
+        inv = (typeof data === 'string') ? JSON.parse(data) : data;
+        
+        const btn = document.getElementById('go');
+        const lang = document.getElementById('langPicker').value;
+        const n = document.getElementById('success-notification');
+        
+        n.style.display = 'block';
+        btn.innerText = i18n[lang] ? i18n[lang].go : i18n['en'].go;
+        btn.disabled = false;
+
+        // Refresh target list
+        tS = null;
+        document.getElementById('tn').innerText = i18n[lang] ? i18n[lang].none : i18n['en'].none;
+        
+        // Re-render lists
+        render(currentSub);
+
+        // Close UI on success
+        setTimeout(() => { 
+            n.style.display = 'none'; 
+            exit(); 
+        }, 1500);
+    };
+
+    const exit = () => { 
+        if (typeof window.CLOSE_UI === 'function') window.CLOSE_UI('');
+        else if (window.PrismaUI) window.PrismaUI.invoke('CLOSE_UI',''); 
+    };
+    
+    document.getElementById('x-btn').onclick = exit;
+    document.addEventListener('keydown', (e) => { if(e.key === 'Escape') exit(); });
+
+    const w = document.getElementById('win'), h = document.getElementById('hdr');
+    let drag = false, ox, oy;
+    h.onmousedown = (e) => { if(e.target.id === 'x-btn' || e.target.tagName === 'SELECT' || e.target.tagName === 'OPTION') return; drag = true; ox = e.clientX - w.offsetLeft; oy = e.clientY - w.offsetTop; };
+    document.onmousemove = (e) => { if(drag) { w.style.left=(e.clientX-ox)+'px'; w.style.top=(e.clientY-oy)+'px'; w.style.transform='none'; } };
+    document.onmouseup = () => drag = false;
+
+    // INITIALIZE SAVED LANGUAGE
+    const saved = localStorage.getItem('tm_lang') || 'en';
+    document.getElementById('langPicker').value = saved;
+    applyLang(saved);
+</script>
+</body>
+</html>

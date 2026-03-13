@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=Jost:wght@300;400&display=swap');
+        :root { --accent: #d4b872; --bg: rgba(12, 12, 14, 0.98); --border: rgba(180, 180, 180, 0.4); }
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        
+        body { background: transparent; color: #e0e0e0; font-family: 'Jost', sans-serif; overflow: hidden; width: 100vw; height: 100vh; }
+        
+        .drag-window { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 1000px; height: 780px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 15px 60px #000; display: flex; flex-direction: column; }
+        
+        .window-header { height: 60px; background: rgba(0,0,0,0.8); border-bottom: 1px solid var(--border); cursor: move; display: flex; justify-content: space-between; align-items: center; padding: 0 25px; border-radius: 12px 12px 0 0; }
+        .header-left { display: flex; align-items: center; gap: 25px; }
+        .title-text { font-family: 'Cinzel', serif; color: var(--accent); letter-spacing: 3px; font-size: 1.2rem; pointer-events: none; }
+        
+        .custom-dropdown { position: relative; display: inline-block; }
+        #mod-dropdown { width: 100%; margin-bottom: 10px; }
+        .dropdown-selected { 
+            background: #151515; color: #fff; border: 2px solid var(--accent); 
+            padding: 6px 12px; border-radius: 6px; cursor: pointer; font-family: 'Cinzel', serif; 
+            font-size: 1.1rem; font-weight: bold; text-align: center; transition: 0.3s; 
+            box-shadow: 0 0 10px rgba(212, 184, 114, 0.1);
+        }
+        .dropdown-selected:hover { background: var(--accent); color: #000; }
+        .dropdown-items { 
+            position: absolute; background: rgba(15,15,15,0.98); border: 1px solid var(--border); 
+            top: 100%; left: 0; right: 0; z-index: 999; max-height: 250px; overflow-y: auto; 
+            border-radius: 6px; margin-top: 5px; box-shadow: 0 10px 30px #000; 
+        }
+        .dropdown-items div { 
+            color: #fff; padding: 10px; cursor: pointer; font-family: 'Jost', sans-serif; 
+            font-size: 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: left;
+        }
+        .dropdown-items div:hover { background: rgba(212, 184, 114, 0.3); color: var(--accent); font-weight: bold; }
+        .select-hide { display: none; }
+        
+        .dropdown-items::-webkit-scrollbar { width: 6px; }
+        .dropdown-items::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
+
+        .search-box { width: 100%; background: rgba(0,0,0,0.6); color: #fff; border: 1px solid var(--border); padding: 10px 12px; border-radius: 6px; margin-bottom: 10px; font-family: 'Jost', sans-serif; font-size: 1rem; outline: none; transition: 0.3s; user-select: auto; }
+        .search-box:focus { border-color: var(--accent); box-shadow: 0 0 8px rgba(212, 184, 114, 0.2); }
+        .search-box::placeholder { color: #888; }
+
+        .close-btn { background: transparent; color: #999; border: none; font-size: 1.8rem; cursor: pointer; transition: 0.2s; z-index: 100; position: relative; }
+        .close-btn:hover { color: #ff4444; }
+
+        .category-bar { display: flex; justify-content: center; background: rgba(0,0,0,0.5); padding: 15px; border-bottom: 1px solid var(--border); gap: 12px; }
+        .cat-btn { padding: 12px 30px; background: transparent; border: 1px solid var(--border); color: #fff; font-family: 'Cinzel', serif; cursor: pointer; transition: 0.3s; border-radius: 4px; font-size: 0.9rem; }
+        .cat-btn.active { background: var(--accent); color: #000; font-weight: bold; border-color: var(--accent); box-shadow: 0 0 15px rgba(212, 184, 114, 0.3); }
+
+        .main-container { display: flex; flex-direction: row; flex-grow: 1; overflow: hidden; }
+        .panel { display: flex; flex-direction: column; padding: 20px; height: 100%; width: 38%; }
+        .center-panel { width: 24%; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 30px 10px; border-left: 1px solid rgba(255,255,255,0.05); border-right: 1px solid rgba(255,255,255,0.05); }
+        
+        .item-list { list-style: none; flex-grow: 1; overflow-y: auto; border: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.2); border-radius: 6px; }
+        .item-list li { position: relative; padding: 18px 40px 18px 20px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.03); font-size: 1.05rem; transition: background 0.2s; }
+        .item-list li:hover { background: rgba(255,255,255,0.08); }
+        .item-list li.selected { background: rgba(212, 184, 114, 0.2); border-left: 5px solid var(--accent); color: var(--accent); font-weight: bold; }
+        
+        .star-btn { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); background: transparent; border: none; font-size: 1.5rem; color: #444; cursor: pointer; transition: 0.3s; }
+        .star-btn:hover { color: #888; transform: translateY(-50%) scale(1.2); }
+        .star-btn.active { color: #ffd700; text-shadow: 0 0 10px rgba(255,215,0,0.6); }
+
+        .warning-box { background: rgba(212, 60, 60, 0.08); border: 1px solid rgba(212, 60, 60, 0.3); padding: 20px; border-radius: 8px; color: #ffbaba; font-size: 0.85rem; text-align: center; pointer-events: none; }
+        .warning-title { color: #ff4444; font-family: 'Cinzel', serif; display: block; margin-bottom: 8px; font-weight: bold; }
+
+        .name-box { background: rgba(0,0,0,0.6); border: 1px solid var(--border); padding: 15px; min-height: 80px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 1rem; border-radius: 6px; color: #fff; margin-top: 10px; }
+        .action-btn { width: 100%; padding: 35px 15px; background: rgba(0,0,0,0.85); color: var(--accent); border: 2px solid var(--accent); cursor: pointer; font-family: 'Cinzel', serif; font-size: 1.4rem; border-radius: 8px; font-weight: bold; transition: 0.3s; }
+        .action-btn:hover:not(:disabled) { background: var(--accent); color: #000; box-shadow: 0 0 30px rgba(212, 184, 114, 0.4); }
+        .action-btn:disabled { opacity: 0.5; cursor: default; }
+        
+        .hide-btn { margin-top: 15px; background: rgba(0,0,0,0.6); color: #aaa; border: 2px dashed #666; font-size: 1.1rem; padding: 20px 15px; }
+        .hide-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.1); color: #fff; border-color: #fff; box-shadow: 0 0 20px rgba(255,255,255,0.2); }
+
+        #success-notification { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #000; border: 3px solid var(--accent); color: var(--accent); padding: 40px 80px; font-family: 'Cinzel', serif; font-size: 2.2rem; border-radius: 15px; display: none; z-index: 9999; letter-spacing: 5px; box-shadow: 0 0 100px #000; pointer-events: none; text-align: center; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div id="success-notification">SUCCESS</div>
+    <div class="drag-window" id="win">
+        <div class="window-header" id="hdr">
+            <div class="header-left">
+                <span class="title-text" id="txt-main-title">SKYRiM ARMOR & CLOTH TRANSMOG</span>
+                
+                <div class="custom-dropdown" id="lang-dropdown">
+                    <div class="dropdown-selected" id="lang-selected">English</div>
+                    <div class="dropdown-items select-hide" id="lang-options">
+                        <div data-val="en">English</div>
+                        <div data-val="tr">Türkçe</div>
+                        <div data-val="cs">Čeština</div>
+                        <div data-val="fr">Français</div>
+                        <div data-val="de">Deutsch</div>
+                        <div data-val="it">Italiano</div>
+                        <div data-val="zh">中文</div>
+                        <div data-val="pl">Polski</div>
+                        <div data-val="pt">Português</div>
+                        <div data-val="ru">Русский</div>
+                        <div data-val="es">Español</div>
+                        <div data-val="uk">Українська</div>
+                    </div>
+                </div>
+
+            </div>
+            <button class="close-btn" id="x-btn">×</button>
+        </div>
+        <div class="category-bar">
+            <button class="cat-btn active" id="btn-helmet" onclick="changeCat('helmet')">HELMETS</button>
+            <button class="cat-btn" id="btn-chest" onclick="changeCat('chest')">ARMORS</button>
+            <button class="cat-btn" id="btn-gloves" onclick="changeCat('gloves')">GLOVES</button>
+            <button class="cat-btn" id="btn-boots" onclick="changeCat('boots')">BOOTS</button>
+        </div>
+        <div class="main-container">
+            <div class="panel">
+                <h2 id="txt-source" style="margin-bottom:10px; text-align:center;">SOURCE LOOK</h2>
+                
+                <div class="custom-dropdown" id="mod-dropdown">
+                    <div class="dropdown-selected" id="mod-selected">Select a Mod...</div>
+                    <div class="dropdown-items select-hide" id="mod-options"></div>
+                </div>
+
+                <input type="text" id="searchInput" class="search-box" placeholder="Search item..." onkeyup="filterSource()" onfocus="handleFocus()" onblur="handleBlur()" autocomplete="off">
+                
+                <ul id="sl" class="item-list"></ul>
+                <div class="name-box" id="sn">No Selection</div>
+            </div>
+            
+            <div class="panel center-panel">
+                <div class="warning-box">
+                    <span class="warning-title" id="txt-warn-title">ANCIENT WARNING</span>
+                    <span id="txt-warn-desc">Do not transmog circlets or open helmets into full helmets. It may cause invisible head issue.</span>
+                </div>
+                <div style="width: 100%;">
+                    <button id="go" class="action-btn" disabled>TRANSFER</button>
+                    <button id="hide-btn" class="action-btn hide-btn" disabled>MAKE INVISIBLE</button>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h2 id="txt-target" style="margin-bottom:10px; text-align:center;">TARGET ITEM</h2>
+                <div style="height: 90px;"></div> 
+                <ul id="tl" class="item-list"></ul>
+                <div class="name-box" id="tn">No Selection</div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    let catalogData = {}; 
+    let inventoryData = { helmet: [], chest: [], gloves: [], boots: [] }; 
+    let sS = null, tS = null, currentCat = 'helmet', currentMod = '';
+    let currentLang = 'en';
+
+    let myFavorites = JSON.parse(localStorage.getItem('skyrim_transmog_favs') || '[]');
+
+    const i18n = {
+        en: { h: "HELMETS", c: "ARMORS", g: "GLOVES", b: "BOOTS", src: "SOURCE LOOK (MODS)", trg: "TARGET (INVENTORY)", none: "No Selection", ok: "TRANSFER SUCCESSFUL", go: "TRANSFER", wait: "TRANSFERRING...", wt: "ANCIENT WARNING", wd: "Do not transmog circlets or open helmets into full helmets. It may cause invisible head issue.", modSel: "Select a Mod...", search: "Search item...", fav: "⭐ FAVORITES", all: "🌐 ALL MODS", hide: "MAKE INVISIBLE", hideWait: "HIDING..." },
+        tr: { h: "MİĞFERLER", c: "ZIRHLAR", g: "ELDİVENLER", b: "BOTLAR", src: "KAYNAK (MOD KATALOĞU)", trg: "HEDEF (ENVANTERİNİZ)", none: "Seçim Yapılmadı", ok: "İŞLEM BAŞARILI", go: "AKTAR", wait: "AKTARILIYOR...", wt: "KADİM UYARI", wd: "Taçları ve açık miğferleri kapalı miğferlere aktarmayın. Görünmez kafa sorunu oluşabilir.", modSel: "Bir Mod Seçin...", search: "Eşya ara...", fav: "⭐ FAVORİLER", all: "🌐 TÜM MODLAR", hide: "PARÇAYI GÖRÜNMEZ YAP", hideWait: "GÖRÜNMEZ YAPILIYOR..." },
+        cs: { h: "HELMY", c: "ZBRNĚNÍ", g: "RUKAVICE", b: "BOTY", src: "ZDROJOVÝ VZHLED (MÓDY)", trg: "CÍL (INVENTÁŘ)", none: "Žádný výběr", ok: "PŘENOS ÚSPĚŠNÝ", go: "PŘENÉST", wait: "PŘENÁŠÍM...", wt: "PRADÁVNÉ VAROVÁNÍ", wd: "Nepřenášejte vzhled čelenek nebo otevřených helem na plné helmy. Může to způsobit neviditelnou hlavu.", modSel: "Vyberte Mód...", search: "Hledat předmět...", fav: "⭐ OBLÍBENÉ", all: "🌐 VŠECHNY MÓDY", hide: "ZNEVIDITELNIT", hideWait: "SKRÝVÁM..." },
+        fr: { h: "CASQUES", c: "ARMURES", g: "GANTS", b: "BOTTES", src: "APPARENCE SOURCE (MODS)", trg: "CIBLE (INVENTAIRE)", none: "Aucune sélection", ok: "TRANSFERT RÉUSSI", go: "TRANSFÉRER", wait: "TRANSFERT...", wt: "AVERTISSEMENT ANCIEN", wd: "Ne pas métamorphoser les diadèmes ou casques ouverts en casques complets. Cela peut causer un bug de tête invisible.", modSel: "Sélectionnez un Mod...", search: "Rechercher un objet...", fav: "⭐ FAVORIS", all: "🌐 TOUS LES MODS", hide: "RENDRE INVISIBLE", hideWait: "MASQUAGE..." },
+        de: { h: "HELME", c: "RÜSTUNGEN", g: "HANDSCHUHE", b: "STIEFEL", src: "QUELL-AUSSEHEN (MODS)", trg: "ZIEL (INVENTAR)", none: "Keine Auswahl", ok: "ÜBERTRAGUNG ERFOLGREICH", go: "ÜBERTRAGEN", wait: "ÜBERTRAGE...", wt: "URALTE WARNUNG", wd: "Verwandeln Sie keine Diademe oder offenen Helme in Vollhelme. Dies kann zu unsichtbaren Köpfen führen.", modSel: "Mod auswählen...", search: "Gegenstand suchen...", fav: "⭐ FAVORITEN", all: "🌐 ALLE MODS", hide: "UNSICHTBAR MACHEN", hideWait: "WIRD UNSICHTBAR..." },
+        it: { h: "ELMI", c: "ARMATURE", g: "GUANTI", b: "STIVALI", src: "ASPETTO ORIGINE (MODS)", trg: "BERSAGLIO (INVENTARIO)", none: "Nessuna selezione", ok: "TRASFERIMENTO COMPLETATO", go: "TRASFERISCI", wait: "TRASFERIMENTO...", wt: "AVVERTIMENTO ANTICO", wd: "Non trasfigurare diademi o elmi aperti in elmi completi. Può causare il problema della testa invisibile.", modSel: "Seleziona una Mod...", search: "Cerca oggetto...", fav: "⭐ PREFERITI", all: "🌐 TUTTE LE MOD", hide: "RENDI INVISIBILE", hideWait: "NASCONDENDO..." },
+        zh: { h: "头盔", c: "护甲", g: "手套", b: "靴子", src: "外观来源 (模组)", trg: "目标 (物品栏)", none: "未选择", ok: "幻化成功", go: "幻化", wait: "幻化中...", wt: "古老的警告", wd: "不要将头饰或开放式头盔幻化为全封闭头盔，这可能会导致头部隐形问题。", modSel: "选择一个模组...", search: "搜索物品...", fav: "⭐ 收藏夹", all: "🌐 所有模组", hide: "隐藏外观", hideWait: "隐藏中..." },
+        pl: { h: "HEŁMY", c: "ZBROJE", g: "RĘKAWICE", b: "BUTY", src: "WYGLĄD ŹRÓDŁOWY (MODY)", trg: "CEL (EKWIPUNEK)", none: "Brak wyboru", ok: "ZMIANA ZAKOŃCZONA", go: "ZASTOSUJ", wait: "ZMIENIANIE...", wt: "STAROŻYTNE OSTRZEŻENIE", wd: "Nie transmutuj diademów ani otwartych hełmów w pełne hełmy. Może to spowodować błąd niewidzialnej głowy.", modSel: "Wybierz mod...", search: "Szukaj przedmiotu...", fav: "⭐ ULUBIONE", all: "🌐 WSZYSTKIE MODY", hide: "ZRÓB NIEWIDZIALNYM", hideWait: "UKRYWANIE..." },
+        pt: { h: "ELMOS", c: "ARMADURAS", g: "LUVAS", b: "BOTAS", src: "APARÊNCIA ORIGEM (MODS)", trg: "ALVO (INVENTÁRIO)", none: "Nenhuma seleção", ok: "TRANSFERÊNCIA CONCLUÍDA", go: "TRANSFERIR", wait: "TRANSFERINDO...", wt: "AVISO ANTIGO", wd: "Não transmogrifique diademas ou elmos abertos em elmos completos. Pode causar problemas de cabeça invisível.", modSel: "Selecione um Mod...", search: "Buscar item...", fav: "⭐ FAVORITOS", all: "🌐 TODOS OS MODS", hide: "TORNAR INVISÍVEL", hideWait: "OCULTANDO..." },
+        ru: { h: "ШЛЕМЫ", c: "БРОНЯ", g: "ПЕРЧАТКИ", b: "САПОГИ", src: "ИСТОЧНИК ВИДА (МОДЫ)", trg: "ЦЕЛЬ (ИНВЕНТАРЬ)", none: "Ничего не выбрано", ok: "ТРАНСМОГРИФИКАЦИЯ УСПЕШНА", go: "ПРИМЕНИТЬ", wait: "ПРИМЕНЕНИЕ...", wt: "ДРЕВНЕЕ ПРЕДУПРЕЖДЕНИЕ", wd: "Не трансмогрифицируйте диадемы или открытые шлемы в закрытые. Это может сделать голову невидимой.", modSel: "Выберите мод...", search: "Поиск предмета...", fav: "⭐ ИЗБРАННОЕ", all: "🌐 ВСЕ МОДЫ", hide: "СДЕЛАТЬ НЕВИДИМЫМ", hideWait: "СКРЫТИЕ..." },
+        es: { h: "YELMOS", c: "ARMADURAS", g: "GUANTES", b: "BOTAS", src: "APARIENCIA ORIGEN (MODS)", trg: "OBJETIVO (INVENTARIO)", none: "Sin selección", ok: "TRANSFERENCIA EXITOSA", go: "TRANSFERIR", wait: "TRANSFIRIENDO...", wt: "ADVERTENCIA ANTIGUA", wd: "No transmogrifiques diademas o yelmos abiertos a yelmos completos. Puede causar un error de cabeza invisible.", modSel: "Selecciona un Mod...", search: "Buscar objeto...", fav: "⭐ FAVORITOS", all: "🌐 TODOS LOS MODS", hide: "HACER INVISIBLE", hideWait: "OCULTANDO..." },
+        uk: { h: "ШОЛОМИ", c: "БРОНЯ", g: "РУКАВИЦІ", b: "ЧОБОТИ", src: "ДЖЕРЕЛО ВИГЛЯДУ (МОДИ)", trg: "ЦІЛЬ (ІНВЕНТАР)", none: "Нічого не вибрано", ok: "ТРАНСМОГРИФІКАЦІЯ УСПІШНА", go: "ЗАСТОСУВАТИ", wait: "ЗАСТОСУВАННЯ...", wt: "СТАРОДАВНЄ ПОПЕРЕДЖЕННЯ", wd: "Не трансмогрифікуйте діадеми або відкриті шоломи в закриті. Це може спричинити зникнення голови.", modSel: "Виберіть мод...", search: "Пошук предмета...", fav: "⭐ УЛЮБЛЕНЕ", all: "🌐 ВСІ МОДИ", hide: "ЗРОБИТИ НЕВИДИМИМ", hideWait: "ПРИХОВУВАННЯ..." }
+    };
+
+    document.getElementById('lang-selected').onclick = function(e) {
+        e.stopPropagation();
+        document.getElementById('lang-options').classList.toggle('select-hide');
+        document.getElementById('mod-options').classList.add('select-hide');
+    };
+
+    document.querySelectorAll('#lang-options div').forEach(opt => {
+        opt.onclick = function(e) {
+            e.stopPropagation();
+            currentLang = this.getAttribute('data-val');
+            document.getElementById('lang-selected').textContent = this.textContent;
+            document.getElementById('lang-options').classList.add('select-hide');
+            updateLanguageTexts();
+        }
+    });
+
+    function updateLanguageTexts() {
+        const langObj = i18n[currentLang] || i18n['en'];
+        document.getElementById('txt-source').textContent = langObj.src;
+        document.getElementById('txt-target').textContent = langObj.trg;
+        document.getElementById('sn').textContent = sS ? sS.name : langObj.none;
+        document.getElementById('tn').textContent = tS ? tS.name : langObj.none;
+        document.getElementById('go').textContent = langObj.go;
+        document.getElementById('hide-btn').textContent = langObj.hide;
+        document.getElementById('txt-warn-title').textContent = langObj.wt;
+        document.getElementById('txt-warn-desc').textContent = langObj.wd;
+        document.getElementById('searchInput').placeholder = langObj.search;
+        document.getElementById('btn-helmet').textContent = langObj.h;
+        document.getElementById('btn-chest').textContent = langObj.c;
+        document.getElementById('btn-gloves').textContent = langObj.g;
+        document.getElementById('btn-boots').textContent = langObj.b;
+        
+        renderModDropdown();
+    }
+
+    document.getElementById('mod-selected').onclick = function(e) {
+        e.stopPropagation();
+        document.getElementById('mod-options').classList.toggle('select-hide');
+        document.getElementById('lang-options').classList.add('select-hide');
+    };
+
+    function renderModDropdown() {
+        const langObj = i18n[currentLang] || i18n['en'];
+        const optsContainer = document.getElementById('mod-options');
+        optsContainer.innerHTML = '';
+        
+        const addOption = (text, value) => {
+            let div = document.createElement('div');
+            div.textContent = text;
+            div.onclick = function(e) {
+                e.stopPropagation();
+                currentMod = value;
+                document.getElementById('mod-selected').textContent = text;
+                document.getElementById('mod-options').classList.add('select-hide');
+                document.getElementById('searchInput').value = ''; 
+                sS = null; 
+                document.getElementById('sn').textContent = langObj.none;
+                renderLists();
+            };
+            optsContainer.appendChild(div);
+        };
+
+        addOption(langObj.modSel, "");
+        addOption(langObj.fav, "FAVORITES");
+        addOption(langObj.all, "ALL");
+
+        let mods = Object.keys(catalogData).sort();
+        mods.forEach(mod => addOption(mod, mod));
+
+        if(currentMod === "") document.getElementById('mod-selected').textContent = langObj.modSel;
+        else if(currentMod === "FAVORITES") document.getElementById('mod-selected').textContent = langObj.fav;
+        else if(currentMod === "ALL") document.getElementById('mod-selected').textContent = langObj.all;
+        else document.getElementById('mod-selected').textContent = currentMod;
+    }
+
+    document.addEventListener('click', function() {
+        document.getElementById('lang-options').classList.add('select-hide');
+        document.getElementById('mod-options').classList.add('select-hide');
+    });
+
+    window.loadUI = function(catData, invData) {
+        catalogData = catData;
+        inventoryData = invData;
+        currentMod = "";
+        renderModDropdown();
+        changeCat('helmet');
+    };
+
+    window.filterSource = function() { renderSourceList(document.getElementById('searchInput').value.toLowerCase()); };
+
+    window.changeCat = function(cat) {
+        currentCat = cat;
+        ['helmet','chest','gloves','boots'].forEach(c => document.getElementById('btn-'+c).classList.remove('active'));
+        document.getElementById('btn-'+cat).classList.add('active');
+        sS = null; tS = null;
+        const langObj = i18n[currentLang] || i18n['en'];
+        document.getElementById('sn').textContent = langObj.none;
+        document.getElementById('tn').textContent = langObj.none;
+        document.getElementById('searchInput').value = ''; 
+        renderLists();
+    };
+
+    function renderLists() { renderSourceList(); renderTargetList(); check(); }
+
+    window.toggleFav = function(item, mod, e) {
+        e.stopPropagation(); 
+        let index = myFavorites.findIndex(f => f.id === item.id && f.cat === currentCat);
+        if (index > -1) {
+            myFavorites.splice(index, 1); 
+        } else {
+            myFavorites.push({ id: item.id, name: item.name, mod: mod, cat: currentCat }); 
+        }
+        localStorage.setItem('skyrim_transmog_favs', JSON.stringify(myFavorites));
+        renderSourceList(document.getElementById('searchInput').value.toLowerCase()); 
+    };
+
+    function renderSourceList(filterText = '') {
+        const ul = document.getElementById('sl'); ul.innerHTML = '';
+        let listToRender = [];
+
+        if (currentMod === 'FAVORITES') {
+            listToRender = myFavorites.filter(f => f.cat === currentCat).map(item => ({...item, displayMod: item.mod}));
+        } else if (currentMod === 'ALL') {
+            for (let mod in catalogData) {
+                if (catalogData[mod][currentCat]) {
+                    catalogData[mod][currentCat].forEach(item => {
+                        listToRender.push({ ...item, displayMod: mod });
+                    });
+                }
+            }
+        } else if (currentMod && catalogData[currentMod] && catalogData[currentMod][currentCat]) {
+            listToRender = catalogData[currentMod][currentCat].map(item => ({ ...item, displayMod: currentMod }));
+        }
+
+        if(listToRender.length === 0) return;
+
+        let renderedCount = 0;
+        const maxRender = 300; 
+
+        listToRender.forEach(item => {
+            if (renderedCount >= maxRender) return; 
+            if (filterText && !item.name.toLowerCase().includes(filterText)) return; 
+            
+            let li = document.createElement('li'); 
+            
+            if (currentMod === 'ALL' || currentMod === 'FAVORITES') {
+                li.innerHTML = `${item.name} <span style="font-size:0.75rem; color:#888; margin-left:10px;">[${item.displayMod}]</span>`;
+            } else {
+                li.textContent = item.name;
+            }
+
+            if (sS && sS.id === item.id) li.classList.add('selected');
+            
+            let isFav = myFavorites.some(f => f.id === item.id && f.cat === currentCat);
+            let starBtn = document.createElement('button');
+            starBtn.className = 'star-btn' + (isFav ? ' active' : '');
+            starBtn.innerHTML = '★';
+            
+            starBtn.onclick = (e) => toggleFav(item, item.displayMod, e);
+            li.appendChild(starBtn);
+
+            li.onclick = () => { 
+                sS = item; 
+                document.getElementById('sn').textContent = item.name; 
+                renderSourceList(filterText); 
+                check(); 
+            };
+            ul.appendChild(li);
+            renderedCount++;
+        });
+    }
+
+    function renderTargetList() {
+        const ul = document.getElementById('tl'); ul.innerHTML = '';
+        if(!inventoryData[currentCat]) return;
+        inventoryData[currentCat].forEach(item => {
+            let li = document.createElement('li'); li.textContent = item.name;
+            if (tS && tS.id === item.id) li.classList.add('selected');
+            li.onclick = () => { tS = item; document.getElementById('tn').textContent = item.name; renderTargetList(); check(); };
+            ul.appendChild(li);
+        });
+    }
+
+    function check() { 
+        document.getElementById('go').disabled = !(sS && tS); 
+        document.getElementById('hide-btn').disabled = !tS;
+    }
+
+    window.transmogSuccess = function(newInvData) {
+        inventoryData = newInvData;
+        tS = null; 
+        const langObj = i18n[currentLang] || i18n['en'];
+        document.getElementById('tn').textContent = langObj.none;
+        renderTargetList(); 
+        document.getElementById('go').textContent = langObj.go;
+        document.getElementById('hide-btn').textContent = langObj.hide;
+        check(); 
+
+        const notif = document.getElementById('success-notification');
+        notif.textContent = langObj.ok;
+        notif.style.display = 'block';
+        setTimeout(() => { notif.style.display = 'none'; }, 2000);
+    };
+
+    document.getElementById('go').onclick = function() {
+        if (sS && tS) {
+            const langObj = i18n[currentLang] || i18n['en'];
+            this.innerText = langObj.wait;
+            this.disabled = true;
+            document.getElementById('hide-btn').disabled = true;
+
+            const payload = sS.id + "," + tS.id;
+
+            try {
+                if (typeof window.TRANSMOGRIFY === 'function') window.TRANSMOGRIFY(payload);
+                else if (window.PrismaUI && window.PrismaUI.invoke) window.PrismaUI.invoke('TRANSMOGRIFY', payload);
+            } catch(e) { 
+                console.error("Error:", e); 
+                this.innerText = langObj.go; 
+                this.disabled = false; 
+                check();
+            }
+        }
+    };
+
+    document.getElementById('hide-btn').onclick = function() {
+        if (tS) {
+            const langObj = i18n[currentLang] || i18n['en'];
+            this.innerText = langObj.hideWait;
+            this.disabled = true;
+            document.getElementById('go').disabled = true;
+
+            const payload = "HIDE," + tS.id;
+
+            try {
+                if (typeof window.TRANSMOGRIFY === 'function') window.TRANSMOGRIFY(payload);
+                else if (window.PrismaUI && window.PrismaUI.invoke) window.PrismaUI.invoke('TRANSMOGRIFY', payload);
+            } catch(e) { 
+                console.error("Error:", e); 
+                this.innerText = langObj.hide; 
+                this.disabled = false; 
+                check(); 
+            }
+        }
+    };
+
+    document.getElementById('x-btn').onclick = function() {
+        try {
+            if (typeof window.CLOSE_UI === 'function') window.CLOSE_UI("");
+            else if (window.PrismaUI && window.PrismaUI.invoke) window.PrismaUI.invoke('CLOSE_UI', "");
+        } catch(e) { console.error("Close Error:", e); }
+    };
+    
+    const win = document.getElementById('win'), hdr = document.getElementById('hdr');
+    let isDragging = false, startX, startY, initialX, initialY;
+    hdr.addEventListener('mousedown', e => { 
+        if(e.target.closest('.custom-dropdown') || e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+        isDragging = true; startX = e.clientX; startY = e.clientY; 
+        const rect = win.getBoundingClientRect(); initialX = rect.left; initialY = rect.top; 
+        win.style.transform = 'none'; win.style.left = initialX + 'px'; win.style.top = initialY + 'px'; 
+    });
+    window.addEventListener('mousemove', e => { 
+        if (!isDragging) return; 
+        win.style.left = (initialX + e.clientX - startX) + 'px'; win.style.top = (initialY + e.clientY - startY) + 'px'; 
+    });
+    window.addEventListener('mouseup', () => isDragging = false);
+
+    window.handleFocus = function() {
+        try {
+            if (window.PrismaUI && window.PrismaUI.invoke) window.PrismaUI.invoke('SET_TYPING', "true");
+        } catch(err) { console.error(err); }
+    };
+
+    window.handleBlur = function() {
+        try {
+            if (window.PrismaUI && window.PrismaUI.invoke) window.PrismaUI.invoke('SET_TYPING', "false");
+        } catch(err) { console.error(err); }
+    };
+
+</script>
+</body>
+</html>
